@@ -1,16 +1,24 @@
 package com.vinicios.library.services;
 
+import com.vinicios.library.dtos.LoanCreateDTO;
+import com.vinicios.library.dtos.LoanResponseDTO;
 import com.vinicios.library.entities.Book;
 import com.vinicios.library.entities.Loan;
 import com.vinicios.library.entities.User;
+import com.vinicios.library.entities.enums.LoanStatus;
+import com.vinicios.library.mappers.LoanMapper;
 import com.vinicios.library.repositories.BookRepository;
 import com.vinicios.library.repositories.LoanRepository;
 import com.vinicios.library.repositories.UserRepository;
+import com.vinicios.library.services.exceptions.BusinessException;
+import com.vinicios.library.services.exceptions.ResourceNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class LoanService {
@@ -24,87 +32,99 @@ public class LoanService {
     @Autowired
     private BookRepository bookRepository;
 
-    public List<Loan> findAllLoans() {
-        return loanRepository.findAll();
+    public List<LoanResponseDTO> findAllLoans() {
+        return LoanMapper.toResponseList(loanRepository.findAll());
     }
 
-    public Loan findLoanById(Long id) {
+    public Optional<LoanResponseDTO> findLoanById(Long id) {
         return loanRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Empréstimo não encontrado"));
+                .map(LoanMapper::toResponseDTO);
     }
 
-    public Loan createLoan(Long userId, Long bookId) {
+    @Transactional
+    public LoanResponseDTO createLoan(LoanCreateDTO dto) {
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+        User user = userRepository.findById(dto.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
 
-        Book book = bookRepository.findById(bookId)
-                .orElseThrow(() -> new RuntimeException("Livro não encontrado"));
+        Book book = bookRepository.findById(dto.getBookId())
+                .orElseThrow(() -> new ResourceNotFoundException("Livro não encontrado"));
 
         boolean bookAlreadyLoaned =
-                loanRepository.existsByBookIdAndReturnDateIsNull(bookId);
+                loanRepository.existsByBookIdAndReturnDateIsNull(dto.getBookId());
 
         if (bookAlreadyLoaned) {
-            throw new RuntimeException("Livro já está emprestado");
+            throw new BusinessException("Livro já está emprestado");
         }
 
         long activeLoans =
-                loanRepository.countByUserIdAndReturnDateIsNull(userId);
+                loanRepository.countByUserIdAndReturnDateIsNull(dto.getUserId());
 
         if (activeLoans >= 3) {
-            throw new RuntimeException("Usuário atingiu o limite de empréstimos");
+            throw new BusinessException("Usuário atingiu o limite de empréstimos");
         }
 
+        LocalDate today = LocalDate.now();
         Loan loan = new Loan();
         loan.setUser(user);
         loan.setBook(book);
-        loan.setLoanDate(LocalDate.now());
+        loan.setLoanDate(today);
+        loan.setStatus(LoanStatus.BORROWED);
 
-        return loanRepository.save(loan);
+        book.setAvailable(false);
+        bookRepository.save(book);
+        Loan saved = loanRepository.save(loan);
+        return LoanMapper.toResponseDTO(saved);
     }
 
-    public Loan returnBook(Long loanId) {
+    @Transactional
+    public LoanResponseDTO returnBook(Long loanId) {
 
         Loan loan = loanRepository.findById(loanId)
-                .orElseThrow(() -> new RuntimeException("Empréstimo não encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Empréstimo não encontrado"));
 
         if (loan.getReturnDate() != null) {
-            throw new RuntimeException("Livro já foi devolvido");
+            throw new BusinessException("Livro já foi devolvido");
         }
 
-        loan.setReturnDate(LocalDate.now());
+        LocalDate today = LocalDate.now();
+        loan.setReturnDate(today);
+        loan.setStatus(LoanStatus.RETURNED);
 
-        return loanRepository.save(loan);
+        Book book = loan.getBook();
+        book.setAvailable(true);
+        bookRepository.save(book);
+        Loan saved = loanRepository.save(loan);
+        return LoanMapper.toResponseDTO(saved);
     }
 
-    public List<Loan> findLoansByUser(Long userId) {
-        return loanRepository.findByUserId(userId);
+    public List<LoanResponseDTO> findLoansByUser(Long userId) {
+        return LoanMapper.toResponseList(loanRepository.findByUserId(userId));
     }
 
-    public List<Loan> findLoansByBook(Long bookId) {
-        return loanRepository.findByBookId(bookId);
+    public List<LoanResponseDTO> findLoansByBook(Long bookId) {
+        return LoanMapper.toResponseList(loanRepository.findByBookId(bookId));
     }
 
-    public List<Loan> findActiveLoans() {
-        return loanRepository.findByReturnDateIsNull();
+    public List<LoanResponseDTO> findActiveLoans() {
+        return LoanMapper.toResponseList(loanRepository.findByReturnDateIsNull());
     }
 
-    public List<Loan> findOverdueLoans() {
+    public List<LoanResponseDTO> findOverdueLoans() {
 
         LocalDate today = LocalDate.now();
 
         return loanRepository.findByReturnDateIsNull()
                 .stream()
                 .filter(loan -> loan.getLoanDate().plusDays(14).isBefore(today))
+                .map(LoanMapper::toResponseDTO)
                 .toList();
     }
 
     public void deleteLoan(Long id) {
+        Loan loan = loanRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Empréstimo não encontrado"));
 
-        if (!loanRepository.existsById(id)) {
-            throw new RuntimeException("Empréstimo não encontrado");
-        }
-
-        loanRepository.deleteById(id);
+        loanRepository.delete(loan);
     }
 }

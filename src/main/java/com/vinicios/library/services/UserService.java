@@ -5,6 +5,7 @@ import com.vinicios.library.dtos.UserResponseDTO;
 import com.vinicios.library.entities.User;
 import com.vinicios.library.mappers.UserMapper;
 import com.vinicios.library.repositories.UserRepository;
+import com.vinicios.library.services.exceptions.ResourceNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -31,25 +32,31 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
-    public Optional<UserResponseDTO> getUserById(Long id) {
-        return userRepository.findById(id)
-                .map(UserMapper::toResponseDTO);
+    public UserResponseDTO getUserById(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+
+        return UserMapper.toResponseDTO(user);
     }
 
-    public Optional<UserResponseDTO> updateUser(Long id, UserCreateDTO dto) {
-        return userRepository.findById(id).map(existingUser -> {
-            existingUser.setName(dto.getName());
-            existingUser.setEmail(dto.getEmail());
-            User updated = userRepository.save(existingUser);
-            return UserMapper.toResponseDTO(updated);
-        });
+    public UserResponseDTO updateUser(Long id, UserCreateDTO dto) {
+
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+
+        user.setName(dto.getName());
+        user.setEmail(dto.getEmail());
+
+        User updated = userRepository.save(user);
+
+        return UserMapper.toResponseDTO(updated);
     }
 
     public void deleteUser(Long id) {
         userRepository.findById(id)
                 .ifPresentOrElse(
                         userRepository::delete,
-                        () -> { throw new RuntimeException("Usuário não encontrado"); }
+                        () -> { throw new ResourceNotFoundException("Usuário não encontrado"); }
                 );
     }
 
