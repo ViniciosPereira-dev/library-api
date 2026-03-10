@@ -24,7 +24,10 @@ O projeto segue uma arquitetura em camadas:
 ![Architecture Diagram](docs/diagrama.drawio.png)
 
 ```
-Controller → Service → Repository
+Client --> Controller
+Controller --> Service
+Service --> Repository
+Repository --> Database
 ```
 
 Além disso, utiliza:
