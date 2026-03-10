@@ -30,6 +30,10 @@ Service --> Repository
 Repository --> Database
 ```
 
+## 📊 Modelo de Dados
+
+![Entity Diagram](docs/dominio.drawio.png)
+
 Além disso, utiliza:
 
 * **DTOs** para transferência de dados
