@@ -1,12 +1,17 @@
 package com.vinicios.library.dtos;
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
+import io.swagger.v3.oas.annotations.media.Schema;
 
+@Schema(description = "User response data")
 public class UserResponseDTO {
 
+    @Schema(description = "User ID", example = "1")
     private Long id;
+
+    @Schema(description = "User name", example = "John Doe")
     private String name;
+
+    @Schema(description = "User email", example = "john.doe@example.com")
     private String email;
 
     public Long getId() { return id; }
