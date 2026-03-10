@@ -8,9 +8,8 @@ import java.util.List;
 
 @Getter
 @Setter
-@NoArgsConstructor
 @AllArgsConstructor
-
+@NoArgsConstructor
 @Entity
 @Table(name = "tb_users")
 public class User {
@@ -24,4 +23,5 @@ public class User {
 
     @OneToMany(mappedBy = "user")
     List<Loan> loans = new ArrayList<>();
+
 }
