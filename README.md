@@ -11,7 +11,7 @@ O sistema permite cadastrar usuários, livros e controlar empréstimos e devolu�
 * Hibernate
 * Maven
 * Swagger / OpenAPI
-* H2 Database (ou o banco que você estiver usando)
+* H2 Database 
 
 ---
 
